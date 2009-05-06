@@ -24,11 +24,14 @@ our $VERSION = '0.02';
 
 
 =head1 DESCRIPTION
+
 MooseX::FSM is an implementation of a Finite State Machine using Moose.  The core idea is that you define a bunch of states the FSM can have.
 Each state defines the methods and attributes that are available when the FSM is in that state.  Transition criteria between states is defined.  When that criteria is met the FSM transitions to that state.  A state can have an enter and exit function that is called when the state is entered or left.  This module currently has an evolving api as I learn about Moose discover other cool modules the api is subject to change.  
 
 There is a slightly convoluted example of scanning a set of directories and calculating the total size of files contained
+
 =begin example
+
 	package Example::FSM01;
     use MooseX::FSM;
 	
@@ -117,6 +120,7 @@ the init_meta function is used internaly by Moose to setup the base class which 
 =head1 ATTRIBUTES
 
 =head2 start_state
+is a read only attribute which defines the state the FSM will be in when when its started up.  At the moment the start method must be called on the FSM before it does any work
 
 =head2 current_state
 is a read write attribute which returns the state the FSM is in when accessed.  When supplied with a new state this is checked to ensure its a valid state for the FSM.  At the moment no check is made to see if the transition is valid.  The FSM after being written is then in the new state.
@@ -167,7 +171,8 @@ has 'current_state' => (
 
 has 'start_state' => (
 	is		=> 'ro',
-	required	=> 1,
+	required	=> 0,
+	default		=> sub { 'start' }, 
 );
 
 

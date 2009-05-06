@@ -24,7 +24,7 @@ has exit => (
 
 has input => (
 	is		=> 'rw',
-	isa		=> 'HashRef',
+	isa		=> 'Ref',
 	lazy	=> 1,
 	default	=> sub { {}; },
 );
