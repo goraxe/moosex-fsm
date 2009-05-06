@@ -100,7 +100,7 @@ There is a slightly convoluted example of scanning a set of directories and calc
 	package main;
 
 	my $fsm = Example::FSM01->new();
-	$fsm->start($ENV{'HOME'});
+	$fsm->run($ENV{'HOME'});
 
 =end example
 
@@ -149,9 +149,9 @@ package MooseX::FSM::Role::Object;
 use Moose::Role;
 use Carp;
 
-#after BUILDALL => sub  {
-#	my $self = shift;
-#
+after BUILDALL => sub  {
+	my $self = shift;
+
 #	if ($self->start_state) {
 ##		$meta->get_attribute('start_state');
 #
@@ -162,7 +162,19 @@ use Carp;
 #		carp __PACKAGE__ . " needs to have a 'start_state' state";
 #	}
 #	
-#};
+
+	# store the original methods inside the object
+	foreach my $method ($self->meta->get_all_methods() ) {
+		$self->debug ("\t -> method -> " . $method->name() . "\n");
+		$self->base_methods()->{$method->name()} = $method;
+	}
+
+	# store the original attributes inside the object
+	foreach my $attr ($self->meta->get_all_attributes() ) {
+		$self->debug("\t -> attribute -> " . $attr->name() . "\n");
+		$self->base_attributes()->{$attr->name()} = $attr;
+	}
+};
 
 has 'current_state' => (
 	is		=> 'rw',
@@ -175,6 +187,19 @@ has 'start_state' => (
 	default		=> sub { 'start' }, 
 );
 
+has 'base_methods' => (
+	is			=> 'ro',
+	requried	=> 0,
+	isa			=> 'HashRef',
+	default		=> sub { {}; },
+);
+
+has 'base_attributes' => (
+	is			=> 'ro',
+	requried	=> 0,
+	isa			=> 'HashRef',
+	default		=> sub { {}; },
+);
 
 =head2 debug
 a simple debug method to log any messages apprioriately
@@ -182,7 +207,7 @@ a simple debug method to log any messages apprioriately
 sub debug {
 	my ($self, $message) = @_;
 #	if ($self->is_debugging) {
-#		print $message;
+		print $message;
 #	}
 }
 
@@ -191,7 +216,7 @@ sub error {
 	carp "error: $message";
 }
 
-sub start {
+sub run {
 	my $self = shift;
 	$self->debug ("going to transition into the start state\n");
 #	$self->transition_to_state($self->start_state());
