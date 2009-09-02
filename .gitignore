@@ -1,5 +1,6 @@
-BUILD
-_BUILD
+Build
+_Build
+_build
 cover_db
 META.yml
 Makefile
