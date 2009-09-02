@@ -6,35 +6,35 @@ use MooseX::FSM;
 has state1 => (
 	is			=> 'ro',
 	enter		=> \&init,
-	input		=> { input1 => \&func_1, input2 => \&func_2 },
+	methods		=> { input1 => \&func_1, input2 => \&func_2 },
 	traits		=> ['State'],
 	transitions	=> { input1 => 'state1', input2 => 'state2' },
 );
 
 has state2 => (
 	is		=> 'ro',
-	input		=> { input3 => \&func_3, input5 => sub { return "anon" },  },
+	methods		=> { input3 => \&func_3, input5 => sub { return "anon" },  },
 	traits		=> ['State'],
 	transitions	=> { input3 => 'state4' },
 );
 
 has state3 => (
 	is		=> 'ro',
-	inputs	=> { input4 => \&func_4 },
+	methods	=> { input4 => \&func_4 },
 	traits	=> ['State'],
 
 );
 
 has state4 => (
 	is			=> 'ro',
-	inputs		=> { input4 => \&func_4 },
+	methods		=> { input4 => \&func_4 },
 	traits		=> ['State'],
 	transitions => { input4 => 'state3' },
 );
 
 has state5 => (
 	is		=> 'ro',
-	inputs		=> { input5 => \&func_5 },
+	methods		=> { input5 => \&func_5 },
 	traits		=> ['State'],
 #	transitions => { input 
 );
