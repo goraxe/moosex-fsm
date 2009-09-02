@@ -63,6 +63,7 @@ sub test_fsm_no_method {
 
 # state2 tests
 	is($fsm->current_state(), 'state2', 'input2 took fsm to state2' );
+	is($fsm->previous_state(), 'state1', 'previous state was state1' );
 	
 	test_fsm_no_method $fsm, "input1";
 	test_fsm_no_method $fsm, "input2";
@@ -77,4 +78,4 @@ sub test_fsm_no_method {
 }
 
 
-
+1;
