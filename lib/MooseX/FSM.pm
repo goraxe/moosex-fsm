@@ -154,7 +154,7 @@ after BUILDALL => sub  {
 
 	# store the original methods inside the object
 	foreach my $method ($self->meta->get_all_methods() ) {
-		$self->debug ("storing method -> " . $method->name() . "\n");
+		$self->debug (1, "storing method -> " . $method->name() . "\n");
 		$self->base_methods()->{$method->name()} = $method;
 	}
 
@@ -163,12 +163,12 @@ after BUILDALL => sub  {
 	foreach my $attr ($self->meta->get_all_attributes() ) {
 
 		if ( $attr->does('MooseX::FSM::State') ) {
-			$self->debug("storing state -> " . $attr->name() . "\n");
+			$self->debug(1, "storing state -> " . $attr->name() . "\n");
 #			$self->debug(Dumper($attr));
 			$self->state_list()->{$attr->name()} = $attr;
 		} else {
 
-			$self->debug("storing attribute -> " . $attr->name() . "\n");
+			$self->debug(1, "storing attribute -> " . $attr->name() . "\n");
 			$self->base_attributes()->{$attr->name()} = $attr;
 		}
 	}
@@ -181,6 +181,7 @@ after BUILDALL => sub  {
 has 'current_state' => (
 	is		=> 'rw',
 	trigger => \&transition_to_state,
+	default	=> sub { my $self = shift; $self->start_state; },
 );
 
 has 'previous_state' => (
@@ -197,8 +198,8 @@ before 'current_state' => sub {
 	my ($self, $state) = @_;
 	# just store the previous state so we call exit on it
 	if ($state) {
-		$self->debug("setting previous_state $state\n");
-		$self->previous_state($state);
+		$self->debug(2, "setting previous_state " . $self->current_state() . "\n");
+		$self->previous_state($self->current_state);
 	}
 };
 
@@ -211,7 +212,6 @@ has 'start_state' => (
 has 'base_methods' => (
 	is			=> 'ro',
 	required	=> 0,
-	isa			=> 'HashRef',
 	default		=> sub { {}; },
 );
 
@@ -233,14 +233,22 @@ has _args => (
 	is			=> 'rw',
 );
 
+has debug => (
+	is			=> 'bare',
+	isa			=> 'Int',
+	lazy		=> 1,
+	default		=> sub { 9; },
+	predicate	=> 'is_debugging',
+);
+
 =head2 debug
 a simple debug method to log any messages apprioriately
 =cut
 sub debug {
-	my ($self, $message) = @_;
-#	if ($self->is_debugging) {
+	my ($self, $level, $message) = @_;
+	if ($self->is_debugging && $level > $self->debug()) {
 		print $message;
-#	}
+	}
 }
 
 sub error {
@@ -250,7 +258,7 @@ sub error {
 
 sub run {
 	my $self = shift;
-	$self->debug ("going to transition into the start state\n");
+	$self->debug (3, "going to transition into the start state\n");
 #	$self->transition_to_state($self->start_state());
 	$self->_args(@_);
 	$self->current_state($self->start_state());
@@ -266,11 +274,11 @@ sub _remove_methods {
 
 	foreach my $method ($meta->get_all_methods) {
 		next if ($method =~ $keep_re);
-		$self->debug("\t -> removing " . $method->package_name() . "::". $method->name() . "\n");
+		$self->debug(1,"\t -> removing " . $method->package_name() . "::". $method->name() . "\n");
 		$meta->remove_method($method->name);
 	}
 
-	$self->debug("done remove methods\n");
+	$self->debug(2, "done remove methods\n");
 
 }
 
@@ -281,7 +289,7 @@ sub _resolve_state_methods {
 	my $meta = $self->meta();
 
 
-	$self->debug("resolving methods for new state" . $state_attr->name() . "\n");
+	$self->debug( 3, "resolving methods for new state" . $state_attr->name() . "\n");
 	my $current_state = $self->state_list()->{$self->current_state()};
 	my $current_methods = $current_state->methods(); # :->get_value($self);
 	my $previous_state;
@@ -289,7 +297,6 @@ sub _resolve_state_methods {
 
 	if ($self->has_previous_state() ) {
 # just for debug
-		$self->debug("previous state looks like " . $self->previous_state() . "\n");
 		$previous_state = $self->state_list()->{$self->previous_state()};
 		$previous_methods = defined $previous_state ? $previous_state->methods() : {} ;
 	}
@@ -338,29 +345,30 @@ sub _resolve_state_methods {
 
 sub transition_to_state {
 	my ($self, $state, @rest)  = @_;
-	$self->debug( "transition to state $state\n");
+	$self->debug(2, "transition to state $state\n");
 	my $meta = $self->meta;
 
 
 	if (my $state_attr = $self->state_list->{$state}) {
+
 		# call exit on current_state
+		if (exists $self->state_list->{$self->previous_state}) {
+			my $exit = $self->state_list->{$self->previous_state}->exit();
+			&$exit($self, $self->_args());
+		}
 
-		# long winded need to reduce
-		my $exit = $self->state_list->{$self->previous_state}->exit();
-		&$exit($self, $self->_args());
-
+		# add the new state methods
 		$meta = $self->_resolve_state_methods($state_attr);
-		
+
 		# call enter on new state
 		my $enter = $state_attr->enter();
 		&$enter($self, $self->_args());
-
 	}
 	else {
 		$self->error("could not transition to '$state' as it doesn't exist");
 	}
-		#my $start_state = $meta->get_attribute($start_state_attribute);
-	return $meta; #$self->meta($meta);
+
+	return $meta;
 }
 
 
@@ -369,7 +377,7 @@ sub debug_print_attrs {
 	my $meta = $self->meta();
 
 	foreach my $attr ($meta->get_all_attributes() ) {
-		$self->debug("\t -> attribute -> " . $attr->name() . "\n");
+		$self->debug(1, "\t -> attribute -> " . $attr->name() . "\n");
 	}
 }
 
@@ -384,7 +392,7 @@ sub debug_print_methods {
 	}
 
 	foreach my $method ($meta->get_all_methods() ) {
-		$self->debug ("\t -> method -> " . $method->name() . "\n");
+		$self->debug (1,"\t -> method -> " . $method->name() . "\n");
 	}
 }
 1;
