@@ -1,38 +1,48 @@
 package Example::FSM01;
 use MooseX::FSM;
 
-has 'processing_dir' (
+has 'processing_dir' =>  (
 	is			=> 'ro',
-	traits		=> 'State',
-	isa			=> 'MooseX::FSM::State',
-	enter		=> 'init',
-	exit		=> 'end',
-	input		=> [ add_file => \&process_file, add_dir => 'process_dir' ]
+	traits		=> [ 'State' ],
+	input		=> [ add_file => \&process_file, add_dir => \&process_dir ]
 );
 
-has 'procesing_file' (
+has 'procesing_file' => (
 	is			=> 'ro',
-	traits		=> 'State',
-	isa			=> 'MooseX::FSM::State',
-	enter		=> 'display_file',
+	traits		=> [ 'State' ],
+	enter		=> \&display_file,
 	input		=> [ add_size => 'inc_size' ],
 );
 
-has 'start' (
+has 'start' => (
 	is			=> 'ro',
-	isa			=> 'MooseX::FSM::State',
-	metaclass	=> 'state',
-	enter		=> 'init',
-	input		=> [ scan_dirs , add_dir => 'process_dir' ],
-	transition	=> [ add_dir => processing_dir, after => { scan_dirs => 'end' } ],
+	traits		=> [ 'State' ],
+	enter		=> \&init,
+	input		=> [ 'size', 'scan_dirs' , add_dir => \&process_dir ],
+	transition	=> [ add_dir => 'processing_dir', after => { scan_dirs => 'end' } ],
 );
 
-has 'end' (
-	is			=> 'ro'
-	traits		=> 'State',
-	enter		=> 'disaply_total_size',
-	exit		=> 'reset',
+has 'end' => (
+	is			=> 'ro',
+	traits		=> [ 'State' ],
+	output		=> [ 'size' ], 
+	enter		=> \&disaply_total_size,
+	# called to reset the state at the end
+	exit		=> \&init,
 );
+
+has 'size' => (
+	is		=> 'rw',
+	isa		=> 'Int',
+	default	=> sub { 0; },
+);
+
+
+sub init {
+	my $self = shift;
+	$self->size(0);
+	$self->scan_dirs(@_);
+}
 
 sub scan_dirs {
 	my $self = shift;
