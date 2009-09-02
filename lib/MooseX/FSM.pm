@@ -152,34 +152,55 @@ use Carp;
 after BUILDALL => sub  {
 	my $self = shift;
 
-#	if ($self->start_state) {
-##		$meta->get_attribute('start_state');
-#
-#		$self->transition_to_state($self->start_state);
-#		
-#	} else {
-#
-#		carp __PACKAGE__ . " needs to have a 'start_state' state";
-#	}
-#	
-
 	# store the original methods inside the object
 	foreach my $method ($self->meta->get_all_methods() ) {
-		$self->debug ("\t -> method -> " . $method->name() . "\n");
+		$self->debug ("storing method -> " . $method->name() . "\n");
 		$self->base_methods()->{$method->name()} = $method;
 	}
 
 	# store the original attributes inside the object
+	# but store states so we can look them up seperatly
 	foreach my $attr ($self->meta->get_all_attributes() ) {
-		$self->debug("\t -> attribute -> " . $attr->name() . "\n");
-		$self->base_attributes()->{$attr->name()} = $attr;
+
+		if ( $attr->does('MooseX::FSM::State') ) {
+			$self->debug("storing state -> " . $attr->name() . "\n");
+#			$self->debug(Dumper($attr));
+			$self->state_list()->{$attr->name()} = $attr;
+		} else {
+
+			$self->debug("storing attribute -> " . $attr->name() . "\n");
+			$self->base_attributes()->{$attr->name()} = $attr;
+		}
 	}
+
+	$self->_remove_methods();
 };
+
+
 
 has 'current_state' => (
 	is		=> 'rw',
 	trigger => \&transition_to_state,
 );
+
+has 'previous_state' => (
+	is		=> 'rw',
+	lazy_build => 1, 
+#	isa => 'String',
+);
+
+sub _build_previous_state {
+	return "";
+}
+
+before 'current_state' => sub {
+	my ($self, $state) = @_;
+	# just store the previous state so we call exit on it
+	if ($state) {
+		$self->debug("setting previous_state $state\n");
+		$self->previous_state($state);
+	}
+};
 
 has 'start_state' => (
 	is		=> 'ro',
@@ -189,16 +210,27 @@ has 'start_state' => (
 
 has 'base_methods' => (
 	is			=> 'ro',
-	requried	=> 0,
+	required	=> 0,
 	isa			=> 'HashRef',
 	default		=> sub { {}; },
 );
 
 has 'base_attributes' => (
 	is			=> 'ro',
-	requried	=> 0,
+	required	=> 0,
 	isa			=> 'HashRef',
 	default		=> sub { {}; },
+);
+
+has 'state_list' => (
+	is			=> 'ro',
+	required	=> 0,
+	isa			=> 'HashRef',
+	default		=> sub { {}; },
+);
+
+has _args => (
+	is			=> 'rw',
 );
 
 =head2 debug
@@ -220,13 +252,12 @@ sub run {
 	my $self = shift;
 	$self->debug ("going to transition into the start state\n");
 #	$self->transition_to_state($self->start_state());
+	$self->_args(@_);
 	$self->current_state($self->start_state());
 }
 
-sub transition_to_state {
-	my ($self, $state, @rest)  = @_;
-	$self->debug( "transition to state $state\n");
-#	my $meta = $self->meta;
+sub _remove_methods {
+	my $self = shift;
 
 	my @keep_funcs = qw( current_state transition_to_state debug meta state_table error ); 
 	my $keep_re = join "|", @keep_funcs;
@@ -241,37 +272,88 @@ sub transition_to_state {
 
 	$self->debug("done remove methods\n");
 
-	if (my $state_attr =$meta->get_attribute($state)) {
-#		 $meta->get_attribute($state);
-		# call exit on current_state
-#		if ($self->current_state() && $self->current_state()->has_exit() ) {
-#			$self->current_state()->exit();
+}
+
+
+sub _resolve_state_methods {
+	my $self = shift;
+	my $state_attr = shift;
+	my $meta = $self->meta();
+
+
+	$self->debug("resolving methods for new state" . $state_attr->name() . "\n");
+	my $current_state = $self->state_list()->{$self->current_state()};
+	my $current_methods = $current_state->methods(); # :->get_value($self);
+	my $previous_state;
+	my $previous_methods;
+
+	if ($self->has_previous_state() ) {
+# just for debug
+		$self->debug("previous state looks like " . $self->previous_state() . "\n");
+		$previous_state = $self->state_list()->{$self->previous_state()};
+		$previous_methods = defined $previous_state ? $previous_state->methods() : {} ;
+	}
+
+
+
+	my @add_methods;
+	my @del_methods;
+	# remove previous methods
+	foreach my $method ( keys %$previous_methods) {
+		$meta->remove_method($method)
+	}
+
+	# add new methods
+	while ( my ($method, $sub) = each %$current_methods) {
+		$meta->add_method($method, $sub);
+	}
+
+	my $transitions = $state_attr->transitions();
+	# add transitions
+	while ( my ($method, $new_state) = each %$transitions ) {
+		$meta->add_after_method_modifier($method, sub { my $self = shift; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
+	}
+#	foreach my $current_method (keys %$current_method) {
+#		if (exists $previous_methods->{$current_method} && $previous_methods->{$current_method} == $current_method->{) {
+#			
+#	}
+
+#	$self->debug("going to look at input");
+#	if ($input && ref ($input) eq 'HASH') {
+#		$self->debug(" yo input has info");
+#		while ( my ($key, $sub) = each %$input) {
+#			$self->debug("adding method : " . $key . ": ". $sub .   "\n");
+#			$meta->add_method($key,$sub); 
+#			if (my $new_state =  $transitions->{$key}) { 
+#				$self->debug("\tsetting transition for input $key to $new_state\n");
+#				# TODO cache transtion sub routines
+#				$meta->add_after_method_modifier($key, sub { my $self = shift; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
+#			}
 #		}
-		# call transition if exists
 
-		# compose new class
-		my $input = $state_attr->input(); # :->get_value($self);
-		my $transitions = $state_attr->transitions();
-		if ($input && ref ($input) eq 'HASH') {
-			while ( my ($key, $sub) = each %$input) {
-#				$self->debug_print_methods($state_attr);
-				$self->debug("adding method : " . $key . ": ". $sub .   "\n");
-#				my $method = Moose::Meta::Method->wrap($sub,{ name=>$key, package_name => ref $self}); 
-				
-				$meta->add_method($key,$sub); 
-#				$meta->add_method($method);
-				if (my $new_state =  $transitions->{$key}) { 
-					$self->debug("\tsetting transition for input $key to $new_state\n");
-					# TODO cache transtion sub routines
-					$meta->add_after_method_modifier($key, sub { my $self = shift; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
-				}
-			}
+#	}
+	return $meta;
+}
 
-		}
+
+sub transition_to_state {
+	my ($self, $state, @rest)  = @_;
+	$self->debug( "transition to state $state\n");
+	my $meta = $self->meta;
+
+
+	if (my $state_attr = $self->state_list->{$state}) {
+		# call exit on current_state
+
+		# long winded need to reduce
+		my $exit = $self->state_list->{$self->previous_state}->exit();
+		&$exit($self, $self->_args());
+
+		$meta = $self->_resolve_state_methods($state_attr);
+		
 		# call enter on new state
 		my $enter = $state_attr->enter();
-		&$enter($self);
-		$self->debug ("setting up new meta object\n");
+		&$enter($self, $self->_args());
 
 	}
 	else {
