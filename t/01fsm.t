@@ -7,9 +7,9 @@ use File::Spec::Functions;
 use Data::Dumper;
 
 # Need to make this quite
-package __TEST;
-Test::More::use_ok ('MooseX::FSM');
-package main;
+#package __TEST;
+#Test::More::use_ok ('MooseX::FSM');
+#package main;
 
 
 # pull in the test libs
@@ -50,7 +50,7 @@ sub test_fsm_no_method {
 
 	is($fsm->current_state(), undef, 'un-started object is undefined');
 # state start tests
-	is($fsm->start(), 'state1', 'start function returns start state');
+	is($fsm->run(), 'state1', 'start function returns start state');
 	is($fsm->input1(), 'func_1', 'input1 correctly aliased');
 	
 	test_fsm_no_method $fsm, "input3";
