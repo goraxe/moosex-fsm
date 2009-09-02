@@ -24,7 +24,7 @@ has enter => (
 	default => sub {
 			sub {
 					my $self = shift; 
-					$self->debug( "default enter called"); 
+					$self->debug( "default enter called\n"); 
 			}; 
 		},
 );
@@ -36,7 +36,7 @@ has exit => (
 	is		=> 'rw',
 	isa		=> 'CodeRef',
 	lazy	=> 1,
-	default => sub { sub { my $self = shift; $self->debug( "default exit called"); }; },
+	default => sub { sub { my $self = shift; $self->debug( "default exit called\n"); }; },
 );
 
 =head2 input
@@ -66,9 +66,9 @@ input takes either a hashref or an arrayref of input methods that will be aliase
 =cut
 has methods => (
 	is		=> 'rw',
-	isa		=> 'ArrayRef',
+	isa		=> 'HashRef',
 	lazy	=> 1,
-	default	=> sub { []; },
+	default	=> sub { {}; },
 );
 
 =head2 transitions
