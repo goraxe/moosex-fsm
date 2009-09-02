@@ -1,4 +1,4 @@
-use Test::More tests => 19;
+use Test::More qw(no_plan);
 use Test::Exception;
 
 use FindBin qw($Bin);
