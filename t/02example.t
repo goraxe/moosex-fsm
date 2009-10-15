@@ -1,4 +1,4 @@
-use Test::More ( tests => 5 );
+use Test::More qw(no_plan);
 
 
 # TODO use Test::Inline to extract the code straight from the module

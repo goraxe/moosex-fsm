@@ -48,7 +48,7 @@ sub test_fsm_no_method {
 	my $fsm = FSM_01->new(start_state => 'state1');
 	isa_ok ($fsm, 'FSM_01', 'FSM_01 created okay');
 
-	is($fsm->current_state(), undef, 'un-started object is undefined');
+	is($fsm->current_state(), 'state1', 'un-started object is in the start state');
 # state start tests
 	is($fsm->run(), 'state1', 'start function returns start state');
 	is($fsm->input1(), 'func_1', 'input1 correctly aliased');

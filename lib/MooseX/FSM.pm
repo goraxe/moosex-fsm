@@ -233,8 +233,8 @@ has _args => (
 	is			=> 'rw',
 );
 
-has debug => (
-	is			=> 'bare',
+has debug_level => (
+	is			=> 'ro',
 	isa			=> 'Int',
 	lazy		=> 1,
 	default		=> sub { 9; },
@@ -246,7 +246,8 @@ a simple debug method to log any messages apprioriately
 =cut
 sub debug {
 	my ($self, $level, $message) = @_;
-	if ($self->is_debugging && $level > $self->debug()) {
+	
+	if ($self->is_debugging  && $level > $self->debug_level()) {
 		print $message;
 	}
 }
@@ -283,13 +284,53 @@ sub _remove_methods {
 }
 
 
+sub _resolve_state_attributes {
+	my ($self, $state_attr) = @_;
+
+	my $meta = $self->meta();
+
+	# input attributes
+
+	$self->debug( 3, "resolving inputs for new state" . $state_attr->name() . "\n");
+	my $current_state = $self->state_list()->{$self->current_state()};
+	my $current_inputs =  $current_state->inputs();
+	use Data::Dumper;
+	my $previous_state;
+	my $previous_inputs = {} ;
+
+	if ($self->has_previous_state ) {
+		$previous_state = $self->state_list->{$self->previous_state()};
+		$previous_inputs = $previous_state->inputs();
+	}
+
+	# remove the previous state inputs
+	foreach my $attr ( @$previous_inputs ) {
+		$meta->remove_method ($attr);
+	}
+
+	# install accessors
+	foreach my $attr ( @$current_inputs) {
+		$self->base_attributes()->{$attr}->install_accessors();
+	}
+
+
+#	foreach my $attr ( keys %$current_inputs ) {
+#	warn "$attr, " . $self->base_attributes()->{$attr} . ", " .$self->base_attributes()->{$attr}->get_write_method ;
+#	my $attr_ref =  $self->base_attributes()->{$attr} ;
+#	my $method_ref = $self->base_attributes()->{$attr}->get_write_method_ref;
+#	warn "method ref is " . Dumper $method_ref;
+#		$meta->add_method ($attr, $self->base_attributes()->{$attr}->get_write_method_ref);
+#	}
+
+}
+
 sub _resolve_state_methods {
 	my $self = shift;
 	my $state_attr = shift;
 	my $meta = $self->meta();
 
 
-	$self->debug( 3, "resolving methods for new state" . $state_attr->name() . "\n");
+	$self->debug( 3, "resolving methods for new state " . $state_attr->name() . "\n");
 	my $current_state = $self->state_list()->{$self->current_state()};
 	my $current_methods = $current_state->methods(); # :->get_value($self);
 	my $previous_state;
@@ -311,40 +352,37 @@ sub _resolve_state_methods {
 	}
 
 	# add new methods
+	$self->debug(2, "adding methods\n");
 	while ( my ($method, $sub) = each %$current_methods) {
+		$self->debug(1, "\tadding method '$method'\n");
 		$meta->add_method($method, $sub);
 	}
 
 	my $transitions = $state_attr->transitions();
 	# add transitions
+	$self->debug(2, "adding transitions\n");
 	while ( my ($method, $new_state) = each %$transitions ) {
-		$meta->add_after_method_modifier($method, sub { my $self = shift; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
-	}
-#	foreach my $current_method (keys %$current_method) {
-#		if (exists $previous_methods->{$current_method} && $previous_methods->{$current_method} == $current_method->{) {
-#			
-#	}
 
-#	$self->debug("going to look at input");
-#	if ($input && ref ($input) eq 'HASH') {
-#		$self->debug(" yo input has info");
-#		while ( my ($key, $sub) = each %$input) {
-#			$self->debug("adding method : " . $key . ": ". $sub .   "\n");
-#			$meta->add_method($key,$sub); 
-#			if (my $new_state =  $transitions->{$key}) { 
-#				$self->debug("\tsetting transition for input $key to $new_state\n");
-#				# TODO cache transtion sub routines
-#				$meta->add_after_method_modifier($key, sub { my $self = shift; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
-#			}
+		if ($method =~ s/^(\+)//) {
+#					if ($1 eq '+') {
+			$self->debug(1,"\tadding before transiton for $method to $new_state\n");
+			$meta->add_before_method_modifier($method, sub { my $self = shift;  $self->_args(@_); return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
+		} else {
+			$self->debug(1,"\tadding after transiton for $method to $new_state\n");
+			$meta->add_after_method_modifier($method, sub { my $self = shift; $self->_args(@_); return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
+		}
+#	}
+#		else {
+#			$meta->add_around_method_modifier($method, sub { my $orig = shift; my ($self) = @_; return if ($self->current_state() eq $new_state); $self->current_state($new_state); });
 #		}
-
-#	}
+	}
 	return $meta;
 }
 
 
 sub transition_to_state {
 	my ($self, $state, @rest)  = @_;
+#	return if ($self->current_state eq $self->previous_state );
 	$self->debug(2, "transition to state $state\n");
 	my $meta = $self->meta;
 
@@ -353,15 +391,18 @@ sub transition_to_state {
 
 		# call exit on current_state
 		if (exists $self->state_list->{$self->previous_state}) {
+			$self->debug(1, "calling exit method for previous state '" . $self->previous_state . "'\n");
 			my $exit = $self->state_list->{$self->previous_state}->exit();
 			&$exit($self, $self->_args());
 		}
 
 		# add the new state methods
+		$self->_resolve_state_attributes($state_attr);
 		$meta = $self->_resolve_state_methods($state_attr);
 
 		# call enter on new state
 		my $enter = $state_attr->enter();
+		$self->debug(1, "calling enter method for new state '" . $self->previous_state . "'\n");
 		&$enter($self, $self->_args());
 	}
 	else {

@@ -24,7 +24,7 @@ has enter => (
 	default => sub {
 			sub {
 					my $self = shift; 
-					$self->debug( "default enter called\n"); 
+					$self->debug(2, "default enter called\n"); 
 			}; 
 		},
 );
@@ -36,14 +36,14 @@ has exit => (
 	is		=> 'rw',
 	isa		=> 'CodeRef',
 	lazy	=> 1,
-	default => sub { sub { my $self = shift; $self->debug( "default exit called\n"); }; },
+	default => sub { sub { my $self = shift; $self->debug( 2, "default exit called\n"); }; },
 );
 
 =head2 input
 will install writters for listed attributes.  If a hashref is listed in the list the key will be used as the writter name and the value should be set to the desired attribute.
 =cut
 
-has input => (
+has inputs => (
 	is		=> 'rw',
 	isa		=> 'ArrayRef',
 	lazy	=> 1,
@@ -54,7 +54,7 @@ has input => (
 will install accessors for listed attributes.  If a hashref is listed in the list the key will be uses as the accessor name for the attribute.
 =cut
 
-has output => (
+has outputs => (
 	is		=> 'rw',
 	isa		=> 'ArrayRef',
 	lazy	=> 1,
