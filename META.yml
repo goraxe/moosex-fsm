@@ -1,15 +1,20 @@
 ---
-name: MooseX-FSM
-version: 0.01
+abstract: 'The great new MooseX::FSM!'
 author:
   - 'Gordon Irving <goraxe@goraxe.me.uk>'
-abstract: The great new MooseX::FSM!
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
 build_requires:
   Moose: 0.72
+  Test::Exception: 0
   Test::More: 0
+configure_requires:
+  Module::Build: 0.36
+dynamic_config: 0
+generated_by: 'Module::Build version 0.3603'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
+name: MooseX-FSM
 provides:
   Moose::Meta::Attribute::Custom::Trait::State:
     file: lib/MooseX/FSM/State.pm
@@ -20,7 +25,6 @@ provides:
     file: lib/MooseX/FSM.pm
   MooseX::FSM::State:
     file: lib/MooseX/FSM/State.pm
-generated_by: Module::Build version 0.280801
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.01
